@@ -75,7 +75,7 @@ const CreateGroupForm: React.FC<CreateGroupFormProps> = ({
   const [description, setDescription] = useState("");
 
   const handleSubmit = () => {
-    if (!name.trim() || !description.trim()) return;
+    if (!name.trim()) return;
     onCreate(name, description);
     setName("");
     setDescription("");
