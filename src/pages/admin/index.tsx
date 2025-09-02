@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import Users from "./components/Users/Users";
 import Groups from "./components/Groups/Groups";
+import Loading from "@/components/Loading/Loading";
 
 const Container = styled.div`
   display: flex;
@@ -10,26 +11,40 @@ const Container = styled.div`
 `;
 
 const Sidebar = styled.aside`
-  width: 250px;
+  width: 60px; /* largura padrão (só ícones) */
   background: #fff;
-  padding: 20px;
+  padding: 20px 10px;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  transition: width 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  &:hover {
+    width: 250px; /* expande no hover */
+  }
 `;
 
 const SidebarTitle = styled.h2`
-  font-size: 1.4rem;
+  font-size: 1rem;
   font-weight: bold;
   margin-bottom: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const Nav = styled.nav`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 `;
 
 const NavButton = styled.button<{ active?: boolean }>`
-  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 15px;
   border: none;
   background: ${({ active }) => (active ? "#eee" : "transparent")};
@@ -37,9 +52,22 @@ const NavButton = styled.button<{ active?: boolean }>`
   cursor: pointer;
   border-radius: 8px;
   transition: 0.2s;
+  width: 100%;
+  overflow: hidden;
 
   &:hover {
     background: #eee;
+  }
+
+  span {
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  /* Quando o sidebar está expandido no hover */
+  ${Sidebar}:hover & span {
+    opacity: 1;
   }
 `;
 
@@ -49,34 +77,54 @@ const Main = styled.main`
 `;
 
 const AdminDashboard = () => {
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"users" | "groups">("groups");
 
+  useEffect(() => {
+    setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+  }, []);
+
   return (
-    <Container>
-      <Sidebar>
-        <SidebarTitle>Admin</SidebarTitle>
-        <Nav>
-          <NavButton
-            active={view === "groups"}
-            onClick={() => setView("groups")}
-          >
-            Grupos
-          </NavButton>
+    <>
+      {loading ? (
+        <Loading />
+      ) : (
+        <Container>
+          <Sidebar>
+            <SidebarTitle>Admin</SidebarTitle>
+            <Nav>
+              <NavButton
+                active={view === "groups"}
+                onClick={() => setView("groups")}
+              >
+                📂 <span>Grupos</span>
+              </NavButton>
 
-          <NavButton active={view === "users"} onClick={() => setView("users")}>
-            Usuários
-          </NavButton>
+              <NavButton
+                active={view === "users"}
+                onClick={() => setView("users")}
+              >
+                👤 <span>Usuários</span>
+              </NavButton>
 
-          <NavButton>Relatórios</NavButton>
-          <NavButton>Sair</NavButton>
-        </Nav>
-      </Sidebar>
+              <NavButton>
+                📊 <span>Relatórios</span>
+              </NavButton>
+              <NavButton>
+                🚪 <span>Sair</span>
+              </NavButton>
+            </Nav>
+          </Sidebar>
 
-      <Main>
-        {view === "users" && <Users />}
-        {view === "groups" && <Groups />}
-      </Main>
-    </Container>
+          <Main>
+            {view === "users" && <Users />}
+            {view === "groups" && <Groups />}
+          </Main>
+        </Container>
+      )}
+    </>
   );
 };
 

@@ -1,20 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
+import CreateQueueComponent from "./Components/CreateQueue";
+import ShowQueueTree from "./Components/ShowQueueTree";
+import { CreateQueue } from "@/services/functions/Queue/CreateQueue";
+import { GetAllQueues } from "@/services/functions/Queue/GetAllQueue";
+import Loading from "@/components/Loading/Loading";
 
 const Container = styled.div`
+  max-width: 80vw;
   padding: 20px;
-`;
-
-const Title = styled.h2`
-  margin-bottom: 15px;
-`;
-
-const Input = styled.input`
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-right: 8px;
-  margin-bottom: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
 `;
 
 const Button = styled.button`
@@ -24,7 +20,6 @@ const Button = styled.button`
   background: #007bff;
   color: white;
   cursor: pointer;
-  margin-right: 8px;
   margin-bottom: 8px;
 
   &:hover {
@@ -32,117 +27,125 @@ const Button = styled.button`
   }
 `;
 
-const List = styled.ul`
-  margin-top: 15px;
-`;
-
-const ListItem = styled.li`
-  padding: 6px 0;
-`;
-
-const SubList = styled.ul`
-  margin-left: 20px;
-  margin-top: 4px;
-`;
-
 interface ISubQueue {
-  id: string;
+  _id: string;
+  description?: string;
   name: string;
-}
-
-interface IQueue {
-  id: string;
-  name: string;
+  groupId: string;
+  parentQueueId: string | null;
+  idAdmin: string;
   subQueues: ISubQueue[];
 }
 
-interface IGroup {
-  _id: string;
-  name: string;
-}
+interface IQueue extends ISubQueue {}
 
 interface QueuesProps {
-  group: IGroup;
+  groupId: string;
 }
 
-const Queues: React.FC<QueuesProps> = ({ group }) => {
+const Queues: React.FC<QueuesProps> = ({ groupId }) => {
+  const [loading, setLoading] = useState(true);
+  const [reloadQueue, setReloadQueue] = useState(false);
   const [queues, setQueues] = useState<IQueue[]>([]);
-  const [queueName, setQueueName] = useState("");
-  const [subQueueName, setSubQueueName] = useState("");
+  const [selectedRootQueueId, setSelectedRootQueueId] = useState<string | null>(
+    null,
+  );
+  const [showCreateQueueModal, setShowCreateQueueModal] = useState(false);
+  const [parentForNewQueue, setParentForNewQueue] = useState<string | null>(
+    null,
+  );
 
-  const addQueue = () => {
-    if (!queueName.trim()) return;
-    const newQueue: IQueue = {
-      id: Date.now().toString(),
-      name: queueName,
-      subQueues: [],
-    };
-    setQueues([...queues, newQueue]);
-    setQueueName("");
+  useEffect(() => {
+    async function main() {
+      setLoading(true);
+      const res = await GetAllQueues(groupId);
+
+      if (res.type === "error") {
+        alert(res.message);
+      } else {
+        setQueues(res.data.data);
+      }
+
+      setLoading(false);
+    }
+
+    main();
+  }, [selectedRootQueueId, reloadQueue]);
+
+  const handleCreateQueue = async (data: {
+    name: string;
+    description?: string;
+  }) => {
+    const res = await CreateQueue({
+      description: data.description || "",
+      groupId,
+      name: data.name.toUpperCase(),
+      parentQueueId: parentForNewQueue,
+    });
+
+    if (res.type === "error") {
+      alert(res.message);
+    } else {
+      setReloadQueue(!reloadQueue);
+    }
+
+    setShowCreateQueueModal(false);
+    setParentForNewQueue(null);
   };
 
-  const addSubQueue = (queueId: string) => {
-    if (!subQueueName.trim()) return;
-    setQueues(
-      queues.map((q) =>
-        q.id === queueId
-          ? {
-              ...q,
-              subQueues: [
-                ...q.subQueues,
-                { id: Date.now().toString(), name: subQueueName },
-              ],
-            }
-          : q,
-      ),
-    );
-    setSubQueueName("");
+  const openCreateQueueModal = (parentId: string | null = null) => {
+    setParentForNewQueue(parentId);
+    setShowCreateQueueModal(true);
   };
+
+  const rootQueues = queues.filter((q) => q.parentQueueId === null);
+  const selectedQueue = queues.find((q) => q._id === selectedRootQueueId);
 
   return (
-    <Container>
-      <Title>Filas do grupo: {group.name}</Title>
+    <>
+      {loading ? (
+        <Loading />
+      ) : (
+        <Container>
+          {/* Botão para criar fila principal */}
 
-      {/* Adicionar fila */}
-      <div>
-        <Input
-          placeholder="Nome da fila"
-          value={queueName}
-          onChange={(e) => setQueueName(e.target.value)}
-        />
-        <Button onClick={addQueue}>Adicionar Fila</Button>
-      </div>
-
-      {/* Listagem de filas */}
-      <List>
-        {queues.map((queue) => (
-          <ListItem key={queue.id}>
-            <strong>Fila: {queue.name}</strong>
-
-            {/* Adicionar subfila */}
-            <div style={{ marginTop: "4px", marginBottom: "4px" }}>
-              <Input
-                placeholder="Nome da subfila"
-                value={subQueueName}
-                onChange={(e) => setSubQueueName(e.target.value)}
-              />
-              <Button onClick={() => addSubQueue(queue.id)}>
-                Adicionar Subfila
+          <h3>Filas Principais</h3>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <Button onClick={() => openCreateQueueModal(null)}>
+              Criar Fila
+            </Button>
+            {rootQueues.map((queue) => (
+              <Button
+                key={queue._id}
+                onClick={() => setSelectedRootQueueId(queue._id)}
+              >
+                {queue.name}
               </Button>
-            </div>
+            ))}
+          </div>
 
-            {/* Listar subfilas */}
-            {queue.subQueues.length > 0 && (
-              <SubList>
-                {queue.subQueues.map((sub) => (
-                  <li key={sub.id}>{sub.name}</li>
-                ))}
-              </SubList>
-            )}
-          </ListItem>
-        ))}
-      </List>
-    </Container>
+          {/* Renderiza árvore da fila selecionada */}
+          {selectedQueue && (
+            <div style={{ marginTop: 20 }}>
+              <ShowQueueTree
+                queue={selectedQueue}
+                onAddSubQueue={(parentId) => openCreateQueueModal(parentId)}
+              />
+            </div>
+          )}
+
+          {/* Modal de criação de fila/subfila */}
+          {showCreateQueueModal && (
+            <CreateQueueComponent
+              groupId={groupId}
+              parentQueueId={parentForNewQueue}
+              onCreate={handleCreateQueue}
+              onClose={() => setShowCreateQueueModal(false)}
+            />
+          )}
+        </Container>
+      )}
+    </>
   );
 };
 

@@ -18,16 +18,8 @@ import AlertMessage, {
 
 const Container = styled.div``;
 
-const Title = styled.h1`
-  font-size: 1.6rem;
-  font-weight: bold;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
 const ActiveGroupBar = styled.div`
+  width: 90%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -80,7 +72,11 @@ interface IGroup {
   description: string;
 }
 
-const Groups: React.FC = () => {
+interface Props {
+  reloadQueue: any;
+}
+
+const Groups = () => {
   const [dataAlert, setDataAlert] = useState<AlertProps>({
     type: null,
     message: null,
@@ -111,6 +107,14 @@ const Groups: React.FC = () => {
 
     getGroups();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "items") {
+      setActiveTab("queues");
+    } else {
+      setActiveTab("items");
+    }
+  }, [activeGroup]);
 
   const selectQueues = () => setActiveTab("queues");
   const selectItems = () => setActiveTab("items");
@@ -154,9 +158,40 @@ const Groups: React.FC = () => {
       ) : (
         <Container>
           <AlertMessage {...dataAlert} />
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <Title>Grupos</Title>
-            <GrTableAdd size={24} cursor="pointer" onClick={toggleCreateForm} />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            {/* Grupo ativo fixo no topo */}
+            {activeGroup && (
+              <ActiveGroupBar onClick={() => setModalType("chooseGroup")}>
+                <GroupInfo>
+                  <GroupName>{activeGroup.name}</GroupName>
+                  <GroupDescription>{activeGroup.description}</GroupDescription>
+                </GroupInfo>
+                <span>▼</span>
+              </ActiveGroupBar>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "90px",
+                padding: "10px",
+                width: "100px",
+              }}
+            >
+              <GrTableAdd
+                size={24}
+                cursor="pointer"
+                onClick={toggleCreateForm}
+              />
+            </div>
           </div>
 
           {showCreateForm && (
@@ -166,17 +201,6 @@ const Groups: React.FC = () => {
               }
               onCancel={() => setShowCreateForm(false)}
             />
-          )}
-
-          {/* Grupo ativo fixo no topo */}
-          {activeGroup && (
-            <ActiveGroupBar onClick={() => setModalType("chooseGroup")}>
-              <GroupInfo>
-                <GroupName>{activeGroup.name}</GroupName>
-                <GroupDescription>{activeGroup.description}</GroupDescription>
-              </GroupInfo>
-              <span>▼</span>
-            </ActiveGroupBar>
           )}
 
           {/* Botões de seleção */}
@@ -193,10 +217,10 @@ const Groups: React.FC = () => {
 
           {/* Renderização direta */}
           {activeGroup && activeTab === "queues" && (
-            <Queues group={activeGroup} />
+            <Queues groupId={activeGroup._id} />
           )}
           {activeGroup && activeTab === "items" && (
-            <Items group={activeGroup} />
+            <Items groupId={activeGroup._id} />
           )}
 
           {/* Modal apenas para troca de grupo */}

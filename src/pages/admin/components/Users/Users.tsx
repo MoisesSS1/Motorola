@@ -1,7 +1,9 @@
 import Modal from "@/components/Modal";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import CreateUser from "./components/CreateUser";
+import { GetAllUsers } from "@/services/functions/User/GetAllUsers";
+import { GetAllGroups } from "@/services/functions/Group/Group";
 
 const Container = styled.div`
   padding: 30px;
@@ -44,30 +46,44 @@ const Td = styled.td`
   padding: 12px;
   border-bottom: 1px solid #ddd;
 `;
+interface IGroup {
+  id: string;
+  name: string;
+}
 
 const Users = () => {
-  const [users] = useState([
-    {
-      id: 1,
-      idAdmin: "admin-001",
-      name: "João Silva",
-      password: "123456",
-      permissions: ["see", "comment"],
-      sector: "Suporte",
-      groupsId: ["g1", "g2"],
-    },
-    {
-      id: 2,
-      idAdmin: "admin-001",
-      name: "Maria Oliveira",
-      password: "654321",
-      permissions: ["see", "create", "close"],
-      sector: "Financeiro",
-      groupsId: ["g3"],
-    },
-  ]);
-
+  const [users, setUsers] = useState([]);
+  const [reloadUsers, setReloadUsers] = useState(false);
+  const [groups, setGroups] = useState<IGroup[]>([]);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    async function main() {
+      const res = await GetAllUsers();
+
+      if (res.type === "error") {
+        alert(res.message);
+      } else {
+        setUsers(res.data.data);
+      }
+    }
+
+    main();
+  }, [reloadUsers]);
+
+  useEffect(() => {
+    async function main() {
+      const res = await GetAllGroups();
+
+      if (res.type === "error") {
+        alert(res.message);
+      } else {
+        setGroups(res.data.data);
+      }
+    }
+
+    main();
+  }, []);
 
   return (
     <Container>
@@ -76,30 +92,38 @@ const Users = () => {
 
       {showModal && (
         <Modal onClose={() => setShowModal(false)}>
-          <CreateUser />
+          <CreateUser setReloadUsers={setReloadUsers} groups={groups} />
         </Modal>
       )}
 
       <Table>
         <thead>
           <tr>
-            <Th>ID</Th>
             <Th>Nome</Th>
-            <Th>Setor</Th>
+            <Th>Login</Th>
             <Th>Permissões</Th>
             <Th>Grupos</Th>
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <Td>{user.id}</Td>
-              <Td>{user.name}</Td>
-              <Td>{user.sector}</Td>
-              <Td>{user.permissions.join(", ")}</Td>
-              <Td>{user.groupsId.join(", ")}</Td>
-            </tr>
-          ))}
+          {users &&
+            users.map((user: any) => (
+              <tr key={user.id}>
+                <Td>{user.name}</Td>
+                <Td>{user.login}</Td>
+                <Td>{user.permissions.join(", ")}</Td>
+                <Td>
+                  {user.groupsId
+                    .map((id: string) => {
+                      const group = groups.find(
+                        (g: any) => g.id === id || g._id === id,
+                      );
+                      return group ? group.name : id;
+                    })
+                    .join(", ")}
+                </Td>
+              </tr>
+            ))}
         </tbody>
       </Table>
     </Container>
