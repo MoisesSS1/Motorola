@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 import Image from "next/image";
 import AlertMessage, {
@@ -7,10 +7,13 @@ import AlertMessage, {
 } from "@/components/AlertMessage/AlertMessage";
 import { loginAdmin } from "@/services/functions/Admin/Login";
 import { useRouter } from "next/router";
+import Loading from "@/components/Loading/Loading";
+import { loginUser } from "@/services/functions/User/LoginUser";
 
 export default function Home() {
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
   const [dataAlert, setDataAlert] = useState<AlertProps>({
     type: null,
     message: null,
@@ -19,12 +22,20 @@ export default function Home() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
+    setLoading(true);
     e.preventDefault();
     if (role === "admin") {
       const res = await loginAdmin({ login, password });
 
       if (res.type === "error") {
+        setLoading(false);
         setDataAlert({
           type: "error",
           message: res.message,
@@ -32,6 +43,19 @@ export default function Home() {
         });
       } else {
         router.push("/admin");
+      }
+    } else {
+      const res = await loginUser({ login, password });
+
+      if (res.type === "error") {
+        setLoading(false);
+        setDataAlert({
+          type: "error",
+          message: res.message,
+          key: new Date(),
+        });
+      } else {
+        router.push("/user");
       }
     }
   };
@@ -45,50 +69,56 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Container>
-        <AlertMessage {...dataAlert} />
-        <Card>
-          <LogoWrapper>
-            <Image
-              src="/motorola.png"
-              alt="Motorola"
-              width={120}
-              height={120}
-            />
-          </LogoWrapper>
+      <>
+        {loading ? (
+          <Loading />
+        ) : (
+          <Container>
+            <AlertMessage {...dataAlert} />
+            <Card>
+              <LogoWrapper>
+                <Image
+                  src="/motorola.png"
+                  alt="Motorola"
+                  width={120}
+                  height={120}
+                />
+              </LogoWrapper>
 
-          <ToggleContainer>
-            <ToggleButton
-              selected={role === "user"}
-              onClick={() => setRole("user")}
-            >
-              Usuário
-            </ToggleButton>
-            <ToggleButton
-              selected={role === "admin"}
-              onClick={() => setRole("admin")}
-            >
-              Admin
-            </ToggleButton>
-          </ToggleContainer>
+              <ToggleContainer>
+                <ToggleButton
+                  selected={role === "user"}
+                  onClick={() => setRole("user")}
+                >
+                  Usuário
+                </ToggleButton>
+                <ToggleButton
+                  selected={role === "admin"}
+                  onClick={() => setRole("admin")}
+                >
+                  Admin
+                </ToggleButton>
+              </ToggleContainer>
 
-          <Form onSubmit={handleSubmit}>
-            <Input
-              type="text"
-              placeholder="Login"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="Senha"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <SubmitButton type="submit">Entrar</SubmitButton>
-          </Form>
-        </Card>
-      </Container>
+              <Form onSubmit={handleSubmit}>
+                <Input
+                  type="text"
+                  placeholder="Login"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                />
+                <Input
+                  type="password"
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <SubmitButton type="submit">Entrar</SubmitButton>
+              </Form>
+            </Card>
+          </Container>
+        )}
+      </>
     </>
   );
 }

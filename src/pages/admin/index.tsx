@@ -3,6 +3,8 @@ import styled from "styled-components";
 import Users from "./components/Users/Users";
 import Groups from "./components/Groups/Groups";
 import Loading from "@/components/Loading/Loading";
+import { removeToken } from "@/helpers/removeToken";
+import { useRouter } from "next/router";
 
 const Container = styled.div`
   display: flex;
@@ -77,6 +79,7 @@ const Main = styled.main`
 `;
 
 const AdminDashboard = () => {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"users" | "groups">("groups");
 
@@ -85,6 +88,12 @@ const AdminDashboard = () => {
       setLoading(false);
     }, 3000);
   }, []);
+
+  async function Logout() {
+    await removeToken();
+
+    router.push("/");
+  }
 
   return (
     <>
@@ -112,7 +121,7 @@ const AdminDashboard = () => {
               <NavButton>
                 📊 <span>Relatórios</span>
               </NavButton>
-              <NavButton>
+              <NavButton onClick={() => Logout()}>
                 🚪 <span>Sair</span>
               </NavButton>
             </Nav>
