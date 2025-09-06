@@ -5,11 +5,12 @@ import { GetAllTickets } from "@/services/functions/Ticket/GetTickets";
 import React, { useState, useMemo, useEffect } from "react";
 import styled from "styled-components";
 import DataTicket from "./components/DataTicket";
+import QueueFilterModal from "./components/QueueFilter";
+import { AddTicketRequest } from "@/services/functions/Ticket/AddComment";
 
 const TableWrapper = styled.div`
   width: 100%;
   overflow-x: auto;
-  margin-top: 20px;
 `;
 
 const Table = styled.table`
@@ -22,13 +23,44 @@ const Table = styled.table`
 `;
 
 const Th = styled.th`
-  padding: 12px 16px;
+  padding: 0px 16px;
+
+  padding-bottom: 10px;
   background: #f5f5f5;
   text-align: left;
   font-weight: 600;
   font-size: 14px;
   color: #333;
   border-bottom: 1px solid #ddd;
+  vertical-align: top;
+`;
+
+const Td = styled.td`
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  color: #555;
+`;
+
+const FilterButton = styled.button`
+  padding: 10px;
+  background-color: #0d6efd;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #0b5ed7;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
 `;
 
 const FilterInput = styled.input`
@@ -58,13 +90,6 @@ const FilterSelect = styled.select`
   border: 1px solid #ccc;
 `;
 
-const Td = styled.td`
-  padding: 12px 16px;
-  border-bottom: 1px solid #eee;
-  font-size: 14px;
-  color: #555;
-`;
-
 const StatusBadge = styled.span<{ status: string }>`
   padding: 4px 8px;
   border-radius: 12px;
@@ -85,27 +110,6 @@ const StatusBadge = styled.span<{ status: string }>`
       : "rgba(25,135,84,0.1)"};
 `;
 
-/* ---- Estilização especial para o select de filas ---- */
-const QueueSelect = styled.select`
-  width: 100%;
-  padding: 6px 10px;
-  margin-top: 4px;
-  font-size: 13px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  max-height: 220px;
-  overflow-y: auto;
-`;
-
-const QueueOption = styled.option<{ isParent?: boolean }>`
-  font-weight: ${({ isParent }) => (isParent ? "bold" : "normal")};
-  color: ${({ isParent }) => (isParent ? "#0d47a1" : "#333")};
-  background: ${({ isParent }) => (isParent ? "rgba(13,71,161,0.08)" : "#fff")};
-`;
-
-// Helper para detectar se fila é pai (não tem "›" no nome)
-const isParentQueue = (name: string) => !name.includes("›");
-
 type Ticket = {
   _id: string;
   ticketId: string;
@@ -114,6 +118,7 @@ type Ticket = {
   groupId: string;
   queueId: string;
   status: "open" | "in_progress" | "closed" | string;
+  createdAt: string;
   externalTickets: { key: string; value: string }[];
   notes?: { text: string; createdAt: string; name: string }[];
 };
@@ -136,18 +141,18 @@ const TicketTable = () => {
   const [queue, setQueue] = useState<any>([]);
   const [queueForDelegate, setQueueForDelegate] = useState<any>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [openQueueModal, setOpenQueueModal] = useState(false);
   const [filters, setFilters] = useState({
     ticketId: "",
     status: "",
     name: "",
     itemId: "",
     groupId: "",
-    queueId: "",
+    queueIds: [] as string[],
     externalTickets: "",
   });
 
-  // Atualiza filtro
-  const handleFilterChange = (field: string, value: string) => {
+  const handleFilterChange = (field: string, value: any) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -155,11 +160,8 @@ const TicketTable = () => {
   useEffect(() => {
     async function main() {
       const res = await GetAllTickets();
-      if (res.type === "error") {
-        alert(res.message);
-      } else {
-        setTickets(res.data.data);
-      }
+      if (res.type === "error") alert(res.message);
+      else setTickets(res.data.data);
       setLoading(false);
     }
     main();
@@ -169,11 +171,8 @@ const TicketTable = () => {
   useEffect(() => {
     async function main() {
       const res = await GetGroupsUser();
-      if (res.type === "error") {
-        alert(res.message);
-      } else {
-        setGroups(res.data.data);
-      }
+      if (res.type === "error") alert(res.message);
+      else setGroups(res.data.data);
       setLoading(false);
     }
     main();
@@ -183,9 +182,8 @@ const TicketTable = () => {
   useEffect(() => {
     async function main() {
       const res = await GetAllQueuesForUser("");
-      if (res.type === "error") {
-        alert(res.message);
-      } else {
+      if (res.type === "error") alert(res.message);
+      else {
         setQueueForDelegate(res.data.data);
         setQueue(flattenQueues(res.data.data));
       }
@@ -194,7 +192,12 @@ const TicketTable = () => {
     main();
   }, []);
 
-  // Filtra os tickets
+  const groupNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    groups.forEach((g: any) => (map[g._id] = g.name));
+    return map;
+  }, [groups]);
+
   const filteredTickets = useMemo(() => {
     return tickets.filter((t: Ticket) => {
       const matchTicketId = t.ticketId
@@ -206,10 +209,16 @@ const TicketTable = () => {
       const matchItem = t.itemId
         .toLowerCase()
         .includes(filters.itemId.toLowerCase());
-      const matchGroup = t.groupId
+
+      const groupName = groupNameMap[t.groupId] || "";
+      const matchGroup = groupName
         .toLowerCase()
         .includes(filters.groupId.toLowerCase());
-      const matchQueue = filters.queueId ? t.queueId === filters.queueId : true;
+
+      const matchQueue =
+        filters.queueIds.length > 0
+          ? filters.queueIds.includes(t.queueId)
+          : true;
       const matchStatus = filters.status ? t.status === filters.status : true;
       const matchExternal =
         filters.externalTickets === ""
@@ -223,6 +232,7 @@ const TicketTable = () => {
                   .toLowerCase()
                   .includes(filters.externalTickets.toLowerCase()),
             );
+
       return (
         matchTicketId &&
         matchName &&
@@ -233,11 +243,29 @@ const TicketTable = () => {
         matchExternal
       );
     });
-  }, [tickets, filters, queue]);
+  }, [tickets, filters, queue, groupNameMap]);
 
   async function onConfirm(res: string) {
     console.log(res);
   }
+
+  async function AddNoteCall(notes: string) {
+    if (selectedTicket) {
+      const res = await AddTicketRequest({
+        idTicket: selectedTicket._id,
+        notes,
+      });
+
+      if (res.type === "error") {
+        alert(res.message);
+      } else {
+        setSelectedTicket(res.data.data);
+      }
+    } else {
+      alert("Nnehum chamado selecionado para ser atualizado!");
+    }
+  }
+
   return (
     <>
       {loading ? (
@@ -290,24 +318,9 @@ const TicketTable = () => {
                   />
                 </Th>
                 <Th>
-                  Fila
-                  <QueueSelect
-                    value={filters.queueId}
-                    onChange={(e) =>
-                      handleFilterChange("queueId", e.target.value)
-                    }
-                  >
-                    <option value="">Todas</option>
-                    {queue.map((q: any) => (
-                      <QueueOption
-                        key={q._id}
-                        value={q._id}
-                        isParent={isParentQueue(q.name)}
-                      >
-                        {q.name}
-                      </QueueOption>
-                    ))}
-                  </QueueSelect>
+                  <FilterButton onClick={() => setOpenQueueModal(true)}>
+                    Filtrar filas
+                  </FilterButton>
                 </Th>
                 <Th>
                   Externos
@@ -319,6 +332,7 @@ const TicketTable = () => {
                     }
                   />
                 </Th>
+                <Th>Data/Hora Abertura</Th>
               </tr>
             </thead>
             <tbody>
@@ -339,7 +353,7 @@ const TicketTable = () => {
                       </StatusBadge>
                     </Td>
                     <Td>{ticket.name}</Td>
-                    <Td>{ticket.groupId}</Td>
+                    <Td>{groupNameMap[ticket.groupId] || ticket.groupId}</Td>
                     <Td>{queueName}</Td>
                     <Td>
                       {ticket.externalTickets.length > 0
@@ -349,6 +363,15 @@ const TicketTable = () => {
                             </div>
                           ))
                         : "—"}
+                    </Td>
+                    <Td>
+                      {new Date(ticket.createdAt).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </Td>
                   </Row>
                 );
@@ -364,8 +387,18 @@ const TicketTable = () => {
               key={selectedTicket._id}
               ticket={selectedTicket}
               onCloseTicket={() => setSelectedTicket(null)}
-              onAddNote={() => console.log("a")}
+              onAddNote={(notes) => AddNoteCall(notes)}
               onClose={() => setSelectedTicket(null)}
+            />
+          )}
+
+          {/* Modal de filtro de filas */}
+          {openQueueModal && (
+            <QueueFilterModal
+              queues={queue}
+              selected={filters.queueIds}
+              onChange={(ids: any) => handleFilterChange("queueIds", ids)}
+              onClose={() => setOpenQueueModal(false)}
             />
           )}
         </TableWrapper>

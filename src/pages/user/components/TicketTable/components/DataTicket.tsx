@@ -57,13 +57,13 @@ const DataTicket = ({
     if (!noteText.trim()) return;
     if (onAddNote) onAddNote(noteText);
 
-    ticket.notes = ticket.notes || [];
-    ticket.notes.push({
-      text: noteText,
-      name: "Você",
-      createdBy: "me",
-      createdAt: new Date().toISOString(),
-    });
+    // ticket.notes = ticket.notes || [];
+    // ticket.notes.push({
+    //   text: noteText,
+    //   name: "Você",
+    //   createdBy: "me",
+    //   createdAt: new Date().toISOString(),
+    // });
 
     setNoteText("");
     setShowModal(false);
@@ -96,11 +96,17 @@ const DataTicket = ({
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 
+  // Buscar nome da fila atual
+  const currentQueueName =
+    queues.find((q) => q._id === ticket.queueId)?.name || "Fila desconhecida";
+
   return (
     <Overlay>
       <Container>
         <Header>
-          <Title>{ticket.name}</Title>
+          <Title>
+            {ticket.name} - {currentQueueName}
+          </Title>
           <CloseButton onClick={onClose}>✖</CloseButton>
         </Header>
 
